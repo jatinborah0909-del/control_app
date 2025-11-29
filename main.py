@@ -4,59 +4,68 @@ import os
 
 app = FastAPI()
 
-# Environment variables (must be set in Railway)
 RAILWAY_TOKEN = os.getenv("RAILWAY_TOKEN")
-SERVICE_ID    = os.getenv("SERVICE_ID")      # example: service_xxxxxxx
-ADMIN_KEY     = os.getenv("ADMIN_KEY")       # example: tinku123
+SERVICE_ID    = os.getenv("SERVICE_ID")
+ENV_ID        = os.getenv("ENVIRONMENT_ID")
+ADMIN_KEY     = os.getenv("ADMIN_KEY")
 
 GRAPHQL_URL = "https://backboard.railway.app/graphql/v2"
 
-
-@app.get("/")
-def root():
-    return {
-        "usage": {
-            "start_service": "/start?key=YOUR_ADMIN_KEY",
-            "stop_service": "/stop?key=YOUR_ADMIN_KEY"
-        }
-    }
+def call_railway(query, variables):
+    r = requests.post(
+        GRAPHQL_URL,
+        json={"query": query, "variables": variables},
+        headers={"Authorization": f"Bearer {RAILWAY_TOKEN}"}
+    )
+    print("RAW:", r.text)
+    return r.text
 
 
 @app.get("/start")
-def start_service(key: str):
+def start(key: str):
     if key != ADMIN_KEY:
         return {"error": "unauthorized"}
 
     query = """
-    mutation($id: String!) {
-      serviceStart(id: $id)
+    mutation($serviceId: String!, $environmentId: String!) {
+      deploymentCreate(
+        input: {
+          serviceId: $serviceId,
+          environmentId: $environmentId,
+          action: START
+        }
+      ) {
+        id
+      }
     }
     """
 
-    response = requests.post(
-        GRAPHQL_URL,
-        json={"query": query, "variables": {"id": SERVICE_ID}},
-        headers={"Authorization": f"Bearer {RAILWAY_TOKEN}"}
-    )
-
-    return {"action": "start", "response": response.text}
+    return call_railway(query, {
+        "serviceId": SERVICE_ID,
+        "environmentId": ENV_ID
+    })
 
 
 @app.get("/stop")
-def stop_service(key: str):
+def stop(key: str):
     if key != ADMIN_KEY:
         return {"error": "unauthorized"}
 
     query = """
-    mutation($id: String!) {
-      serviceStop(id: $id)
+    mutation($serviceId: String!, $environmentId: String!) {
+      deploymentCreate(
+        input: {
+          serviceId: $serviceId,
+          environmentId: $environmentId,
+          action: STOP
+        }
+      ) {
+        id
+      }
     }
     """
 
-    response = requests.post(
-        GRAPHQL_URL,
-        json={"query": query, "variables": {"id": SERVICE_ID}},
-        headers={"Authorization": f"Bearer {RAILWAY_TOKEN}"}
-    )
-
-    return {"action": "stop", "response": response.text}
+    return call_railway(query, {
+        "serviceId": SERVICE_ID,
+        "environmentId": ENV_ID
+    })
