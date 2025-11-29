@@ -17,33 +17,8 @@ def call_railway(query, variables):
         json={"query": query, "variables": variables},
         headers={"Authorization": f"Bearer {RAILWAY_TOKEN}"}
     )
-    print("RAW:", r.text)
+    print("RAW RESPONSE:", r.text)
     return r.text
-
-
-@app.get("/start")
-def start(key: str):
-    if key != ADMIN_KEY:
-        return {"error": "unauthorized"}
-
-    query = """
-    mutation($serviceId: String!, $environmentId: String!) {
-      deploymentCreate(
-        input: {
-          serviceId: $serviceId,
-          environmentId: $environmentId,
-          action: START
-        }
-      ) {
-        id
-      }
-    }
-    """
-
-    return call_railway(query, {
-        "serviceId": SERVICE_ID,
-        "environmentId": ENV_ID
-    })
 
 
 @app.get("/stop")
@@ -53,15 +28,32 @@ def stop(key: str):
 
     query = """
     mutation($serviceId: String!, $environmentId: String!) {
-      deploymentCreate(
-        input: {
-          serviceId: $serviceId,
-          environmentId: $environmentId,
-          action: STOP
-        }
-      ) {
-        id
-      }
+      serviceInstanceScale(
+        serviceId: $serviceId,
+        environmentId: $environmentId,
+        replicas: 0
+      ) { id }
+    }
+    """
+
+    return call_railway(query, {
+        "serviceId": SERVICE_ID,
+        "environmentId": ENV_ID
+    })
+
+
+@app.get("/start")
+def start(key: str):
+    if key != ADMIN_KEY:
+        return {"error": "unauthorized"}
+
+    query = """
+    mutation($serviceId: String!, $environmentId: String!) {
+      serviceInstanceScale(
+        serviceId: $serviceId,
+        environmentId: $environmentId,
+        replicas: 1
+      ) { id }
     }
     """
 
